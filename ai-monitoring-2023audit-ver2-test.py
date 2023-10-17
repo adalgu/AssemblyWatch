@@ -26,11 +26,11 @@ NOTION_API_KEY = "secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV"
 # NOTION_PAGE_ID = "c30031bd3285408d919d3e1f91b75092"  # 정무위
 
 # 국토위 설정
-NOTION_PAGE_ID = "000cf376ac214821a4701a2b5f050f65"  # 국토위
+NOTION_PAGE_ID = "d053dce5b00842e7ad201e48bbbc603b"  # 테스트
 URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=54&xcgcd=DCM00005421410A301&"  # 국토위
-# 알림을 원하는 키워드 입력 (예: 카카오, 카카오모빌리티, 택시, 모빌리티)
-# error_keywords = ['카카오', '카카오모빌리티', '택시', '모빌리티']  # 이 리스트에 검사하고자 하는 단어들을 추가
-# SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # onsandbox
+# # 알림을 원하는 키워드 입력 (예: 카카오, 카카오모빌리티, 택시, 모빌리티)
+# error_keywords = ['카카오', '카카오모빌리티', '택시', '모빌리티', '류긍선', '김범수']  # 이 리스트에 검사하고자 하는 단어들을 추가
+# # SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # onsandbox
 # SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 대외협력실_new
 
 # Notion 클라이언트 초기화
@@ -199,10 +199,10 @@ def main():
             initial_text = f"{title}\n{date}\n{get_current_time()}\n"
             # 메시지 보내기 예시
             # 첫 메시지를 보내고 'ts' 값을 저장
-            if not ts:
-                ts = send_message(initial_text)
-            else:
-                send_reply_to_thread(initial_text, ts)
+            # if not ts:
+            #     ts = send_message(initial_text)
+            # else:
+            #     send_reply_to_thread(initial_text, ts)
 
             save_text_to_file(initial_text, full_path)
             append_block_to_page(NOTION_PAGE_ID, initial_text)
@@ -245,16 +245,23 @@ def main():
                     save_text_to_file("\n".join(new_texts), full_path)
                     content = str(new_texts)
                     append_block_to_page(NOTION_PAGE_ID, content)
-                    send_reply_to_thread(content, ts)
+                    # send_reply_to_thread(content, ts)
 
                     prev_texts = curr_texts
 
-                    # # 여기에 에러 메시지 확인 및 슬랙 알림 로직 추가
-                    # if any(keyword in content for keyword in error_keywords):
-                    #     alert_message = f"⚠️ {get_current_time()} {title} : 현재 진행중 국감 현장에서 <카카오모빌리티> 관련 언급 발생"
-                    #     # send_to_slack(slack_channel_id, ts, alert_message)
-                    #     send_slack_msg(SLACK_ALERT_WEBHOOK,
-                    #                    alert_message, title)
+                    # 여기에 에러 메시지 확인 및 슬랙 알림 로직 추가
+                    # 알림을 원하는 키워드 입력 (예: 카카오, 카카오모빌리티, 택시, 모빌리티)
+                    # 이 리스트에 검사하고자 하는 단어들을 추가
+                    error_keywords = ['카카오', '카카오모빌리티',
+                                      '택시', '모빌리티', '류긍선', '김범수']
+                    # SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # onsandbox
+                    SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 대외협력실_new
+
+                    if any(keyword in content for keyword in error_keywords):
+                        alert_message = f"⚠️ {get_current_time()} : <카카오모빌리티> 키워드 알람 \n {content}\n"
+                        # send_to_slack(slack_channel_id, ts, alert_message)
+                        send_slack_msg(SLACK_ALERT_WEBHOOK,
+                                       alert_message, title)
 
         except Exception as e:
             print(f"An error occurred: {str(e)}")

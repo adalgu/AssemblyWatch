@@ -16,22 +16,29 @@ from notion_client import Client
 
 # 환경 설정
 NOTION_API_KEY = "secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV"
-# NOTION_PAGE_ID = "ec8af56b6fe449c6a3662f1580c84de6"
-# SLACK_WEBHOOK_URL = 'https://hooks.slack.com/services/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'
+
+# 초기 세팅
+NOTION_PAGE_ID = "f873bd1d1e3749dcab60e28fa745941d"  # 환노위
+URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=34&xcgcd=DCM00003421410A401&"
 
 
-# Replace with your Notion page ID
-# NOTION_PAGE_ID = "d053dce5b00842e7ad201e48bbbc603b" #국토위
-# NOTION_PAGE_ID = "ec8af56b6fe449c6a3662f1580c84de6"  # 과방위
-# NOTION_PAGE_ID = "c30031bd3285408d919d3e1f91b75092"  # 정무위
-
-# 국토위 설정
-NOTION_PAGE_ID = "000cf376ac214821a4701a2b5f050f65"  # 국토위
-URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=54&xcgcd=DCM00005421410A301&"  # 국토위
 # 알림을 원하는 키워드 입력 (예: 카카오, 카카오모빌리티, 택시, 모빌리티)
-# error_keywords = ['카카오', '카카오모빌리티', '택시', '모빌리티']  # 이 리스트에 검사하고자 하는 단어들을 추가
+error_keywords = ['카카오', '카카오모빌리티', '택시', '모빌리티',
+                  '류긍선', '김범수']  # 이 리스트에 검사하고자 하는 단어들을 추가
 # SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # onsandbox
-# SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 대외협력실_new
+# SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 2023-국정감사-모니터링
+SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 대외협력실_new
+
+# WebClient 인스턴스화: API 메서드를 호출할 클라이언트 생성
+# client = WebClient(token=os.environ.get("SLACK_BOT_TOKEN"))
+
+# Slack API token
+# User OAuth Token
+token = 'xoxp-194626280262-697909535825-6033906233927-b41117a1bea58c97265e28c720369ba2'
+# 채널 ID
+channel_id = "C060BR0E4KF"  # 모니터링
+# channel_id = "C061BEMDD0V" #실시간모니터링
+
 
 # Notion 클라이언트 초기화
 notion = Client(auth=NOTION_API_KEY)
@@ -72,19 +79,7 @@ def append_block_to_page(page_id, content, block_type="paragraph"):
         return None
 
 
-# WebClient 인스턴스화: API 메서드를 호출할 클라이언트 생성
-# client = WebClient(token=os.environ.get("SLACK_BOT_TOKEN"))
-
-# Slack API token
-token = 'xoxp-194626280262-697909535825-6021120508370-d755cbd9b65973873643c7dc74f66e11'
-# token = 'xoxb-194626280262-6021023650051-1LDDyo8zrPrVNPk8ufa66f1t'
-# WebClient 인스턴스화: API 메서드를 호출할 클라이언트 생성
 client = WebClient(token=token)
-
-
-# 채널 ID
-# channel_id = "CSD2UDY3D"
-channel_id = "C060BR0E4KF"
 
 
 def send_message(text):
@@ -104,19 +99,71 @@ def send_message(text):
         return None
 
 
+# def send_reply_to_thread(text, ts):
+#     """
+#     슬랙 스레드에 메시지를 보내는 함수
+#     """
+#     try:
+#         # 스레드 메시지 보내기
+#         client.chat_postMessage(
+#             channel=channel_id,
+#             thread_ts=ts,
+#             text=text
+#         )
+#     except SlackApiError as e:
+#         print(f"Error sending reply: {e.response['error']}")
+
+
 def send_reply_to_thread(text, ts):
     """
     슬랙 스레드에 메시지를 보내는 함수
     """
     try:
         # 스레드 메시지 보내기
-        client.chat_postMessage(
+        response = client.chat_postMessage(
             channel=channel_id,
             thread_ts=ts,
             text=text
         )
+
+        # If the message is sent successfully, construct the thread link and return
+        message_timestamp = response['ts']
+        # Modify the following line with your actual Slack workspace domain
+        workspace_domain = "kakaomobility"
+        thread_link = f"https://{workspace_domain}.slack.com/archives/{channel_id}/p{message_timestamp.replace('.', '')}?thread_ts={ts}&cid={channel_id}"
+        return thread_link
+
     except SlackApiError as e:
         print(f"Error sending reply: {e.response['error']}")
+        return None
+
+
+def send_slack_msg(slackurl, msg, title, ts=None):
+    # Constructing the Slack message with the thread link if ts is provided
+    if ts:
+        # Modify the following line with your actual Slack workspace domain
+        workspace_domain = "kakaomobility"
+        thread_link = f"https://{workspace_domain}.slack.com/archives/{channel_id}/p{ts.replace('.', '')}?thread_ts={ts}&cid={channel_id}"
+        msg += f"\n\n[바로보기]({thread_link})"
+
+    slack_data = {
+        "attachments": [
+            {
+                "color": "#e50000",
+                "fields": [
+                    {
+                        "title": title,
+                        "value": msg,
+                        "short": "false",
+                    }
+                ]
+            }
+        ]
+    }
+
+    response = requests.post(
+        slackurl, headers={'Content-Type': 'application/json'}, json=slack_data)
+    response.raise_for_status()
 
 
 def initialize_chrome_driver():
@@ -134,29 +181,6 @@ def get_current_time():
     """현재 시간을 문자열로 반환합니다."""
     now = datetime.datetime.now()
     return now.strftime("%p %I시:%M분").replace("AM", "오전").replace("PM", "오후")
-
-
-SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"
-
-
-def send_slack_msg(slackurl, msg, title):
-    slack_data = {
-        "attachments": [
-            {
-                "color": "#e50000",
-                "fields": [
-                    {
-                        "title": title,
-                        "value": msg,
-                        "short": "false",
-                    }
-                ]
-            }
-        ]
-    }
-    response = requests.post(
-        slackurl, headers={'Content-Type': 'application/json'}, json=slack_data)
-    response.raise_for_status()
 
 
 def main():
@@ -248,13 +272,12 @@ def main():
                     send_reply_to_thread(content, ts)
 
                     prev_texts = curr_texts
-
-                    # # 여기에 에러 메시지 확인 및 슬랙 알림 로직 추가
-                    # if any(keyword in content for keyword in error_keywords):
-                    #     alert_message = f"⚠️ {get_current_time()} {title} : 현재 진행중 국감 현장에서 <카카오모빌리티> 관련 언급 발생"
-                    #     # send_to_slack(slack_channel_id, ts, alert_message)
-                    #     send_slack_msg(SLACK_ALERT_WEBHOOK,
-                    #                    alert_message, title)
+                    # 여기에 에러 메시지 확인 및 슬랙 알림 로직 추가
+                    if any(keyword in content for keyword in error_keywords):
+                        alert_message = f"⚠️ {title} {get_current_time()} \n {content}\n"
+                        # send_to_slack(slack_channel_id, ts, alert_message)
+                        send_slack_msg(SLACK_ALERT_WEBHOOK,
+                                       alert_message, title, ts)
 
         except Exception as e:
             print(f"An error occurred: {str(e)}")

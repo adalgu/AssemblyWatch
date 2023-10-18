@@ -70,7 +70,9 @@ for li in soup.select('ul#gvlist li'):
     # 링크1 (생중계)
     live_link = li.select_one('.btn_box .btn_vdo_red')
     if live_link:
-        live_link = live_link['href']
+        href_value = live_link.get('href')[2:]
+        live_link = "https://assembly.webcast.go.kr/main/" + href_value
+        # live_link = live_link["https://assembly.webcast.go.kr/main/"+'href']
     else:
         live_link = None
 
@@ -174,4 +176,4 @@ def send_message(text):
         return None
 
 
-send_message(result)
+# send_message(result)

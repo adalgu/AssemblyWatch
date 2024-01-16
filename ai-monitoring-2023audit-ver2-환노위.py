@@ -18,8 +18,8 @@ from notion_client import Client
 NOTION_API_KEY = "secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV"
 
 # 초기 세팅
-NOTION_PAGE_ID = "f873bd1d1e3749dcab60e28fa745941d"  # 환노위
-URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=34&xcgcd=DCM00003421410A401&"
+NOTION_PAGE_ID = "feff50efcbe14287afc506d5df5d551e"  # 환노위
+URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=34&xcgcd=DCM00003421410A501&"
 
 
 # 알림을 원하는 키워드 입력 (예: 카카오, 카카오모빌리티, 택시, 모빌리티)
@@ -282,6 +282,7 @@ def main():
         except Exception as e:
             print(f"An error occurred: {str(e)}")
             print("Retrying in 5 seconds...")
+            driver = initialize_chrome_driver()  # reinitialize the driver
             time.sleep(5)  # wait for 60 seconds before retrying
 
         finally:

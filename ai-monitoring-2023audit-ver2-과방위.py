@@ -10,17 +10,17 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.common.keys import Keys
+from selenium.common import NoSuchElementException, ElementNotInteractableException
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from notion_client import Client
 
 # 환경 설정
 NOTION_API_KEY = "secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV"
 
 # 초기 세팅
-NOTION_PAGE_ID = "c9d61f3ed18048df874102c8c1979eaa"  # 과방위
-URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=56&xcgcd=DCM00005621410A401&"
-
+NOTION_PAGE_ID = "3d8df5dd13694b9382090159ba6394a5"  # 과방위
+URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=56&xcgcd=DCM00005621410A701&"
 
 # 알림을 원하는 키워드 입력 (예: 카카오, 카카오모빌리티, 택시, 모빌리티)
 error_keywords = ['카카오', '카카오모빌리티', '택시', '모빌리티',
@@ -32,8 +32,7 @@ SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/T5QJE887Q/B061T3CBR4Z/Zg
 # WebClient 인스턴스화: API 메서드를 호출할 클라이언트 생성
 # client = WebClient(token=os.environ.get("SLACK_BOT_TOKEN"))
 
-# Slack API token
-# User OAuth Token
+# Slack API token User OAuth Token
 token = 'xoxp-194626280262-697909535825-6033906233927-b41117a1bea58c97265e28c720369ba2'
 # 채널 ID
 channel_id = "C060BR0E4KF"  # 모니터링
@@ -43,16 +42,27 @@ channel_id = "C060BR0E4KF"  # 모니터링
 # Notion 클라이언트 초기화
 notion = Client(auth=NOTION_API_KEY)
 
-#slack
-client = WebClient(token=token)
-
 # 전역 변수 추가
 ts = None
+last_crawled_time = None  # <--- 추가된 부분
 
 
 def save_text_to_file(text, filename):
     with open(filename, 'a', encoding='utf-8') as file:
         file.write(text + "\n")
+
+
+def create_notion_page(database_id, title):
+    try:
+        new_page = notion.pages.create(
+            parent={"database_id": database_id},
+            properties={
+                "title": [{"type": "text", "text": {"content": title}}]}
+        )
+        return new_page['id']
+    except Exception as e:
+        print("Error creating a new Notion page:", str(e))
+        return None
 
 
 def append_block_to_page(page_id, content, block_type="paragraph"):
@@ -82,7 +92,7 @@ def append_block_to_page(page_id, content, block_type="paragraph"):
         return None
 
 
-
+client = WebClient(token=token)
 
 
 def send_message(text):
@@ -196,23 +206,37 @@ def main():
 
         try:
             driver.get(URL)
-            time.sleep(5)
 
+            # AI 자막 버튼이 나타날 때까지 대기
+            wait = WebDriverWait(driver, 10)  # 최대 10초 대기
             button = driver.find_element(By.XPATH, "//*[@id='smi_btn']")
+            wait.until(lambda d: button.is_displayed())
             button.click()
 
             print("AI 자막 켜기 완료")
 
-            title = driver.find_element(By.CSS_SELECTOR, "#xsubj").text
-            date = driver.find_element(By.CSS_SELECTOR, "#xdate").text
+            wait.until(EC.visibility_of_any_elements_located(
+                (By.CSS_SELECTOR, "p[class^='smi_word stxt']")))
+
+            print("AI 자막 작동 확인")
+
+            # 제목 및 날짜 정보가 표시될 때까지 대기
+            title_element = driver.find_element(By.CSS_SELECTOR, "#xsubj")
+            wait.until(lambda d: title_element.is_displayed())
+            title = title_element.text
+
+            date_element = driver.find_element(By.CSS_SELECTOR, "#xdate")
+            wait.until(lambda d: date_element.is_displayed())
+            date = date_element.text
+
             print(title, "\n", date)
 
             prev_elements = driver.find_elements(
                 By.CSS_SELECTOR, "p[class^='smi_word stxt']")
             prev_texts = [el.text for el in prev_elements]
 
-            interval = 3  # 크롤링 간격
-            time_recording_interval = 60  # 시간 기록 간격 (1분)
+            interval = 2  # 크롤링 간격 (2초)
+            time_recording_interval = 60  # 시간 기록 간격 (60초)
             last_time_recorded = time.time()  # 마지막으로 시간을 기록한 시점
 
             safe_date = date.replace(" ", "_").replace(
@@ -237,7 +261,7 @@ def main():
             while True:
                 time.sleep(interval)
 
-                # 5분마다 현재 시간 기록
+                # 1분마다 현재 시간 기록
                 if time.time() - last_time_recorded >= time_recording_interval:
                     current_time_text = f"\n{get_current_time()}\n"
                     save_text_to_file(current_time_text, full_path)
@@ -246,6 +270,9 @@ def main():
 
                 curr_elements = driver.find_elements(
                     By.CSS_SELECTOR, "p[class^='smi_word stxt']")
+                if curr_elements:
+                    wait.until(lambda d: curr_elements[0].is_displayed())
+
                 curr_texts = []
 
                 max_index = -1
@@ -265,6 +292,7 @@ def main():
                             curr_texts.append(span.text)
 
                 if curr_texts != prev_texts:
+                    last_crawled_time = time.time()  # <--- 새로운 텍스트가 크롤링될 때마다 시간 업데이트
                     new_texts = [
                         text for text in curr_texts if text not in prev_texts]
                     # print("\n".join(new_texts))
@@ -275,17 +303,38 @@ def main():
                     send_reply_to_thread(content, ts)
 
                     prev_texts = curr_texts
-                    # 여기에 에러 메시지 확인 및 슬랙 알림 로직 추가
+
+                    # 여기에 알람 메시지 확인 및 슬랙 알림 로직 추가
                     if any(keyword in content for keyword in error_keywords):
                         alert_message = f"⚠️ {title} {get_current_time()} \n {content}\n"
                         # send_to_slack(slack_channel_id, ts, alert_message)
                         send_slack_msg(SLACK_ALERT_WEBHOOK,
                                        alert_message, title, ts)
 
+                    # 만약 마지막으로 크롤링된 시간과 현재 시간의 차이가 1분 이상이면 메인 루프를 종료
+                    if last_crawled_time and time.time() - last_crawled_time > 60:
+                        content = str(new_texts)
+                        append_block_to_page(NOTION_PAGE_ID, content)
+                        send_reply_to_thread(content, ts)
+                        print(
+                            "No new text was crawled for over a minute. Restarting...")
+                        time.sleep(30)
+                        break  # 내부 루프 종료
+
         except Exception as e:
             print(f"An error occurred: {str(e)}")
-            print("Retrying in 5 seconds...")
-            time.sleep(5)  # wait for 60 seconds before retrying
+
+            if "현재 생중계 중이 아닙니다." in str(e):
+                status_texts = "The broadcast is not currently live. Waiting for 30 minutes..."
+                print(status_texts)
+                # save_text_to_file("\n".join(status_texts), full_path)
+                content = str(status_texts)
+                append_block_to_page(NOTION_PAGE_ID, content)
+                send_reply_to_thread(content, ts)
+                time.sleep(1800)  # wait for 30 minutes
+            else:
+                print("Retrying in 10 seconds...")
+                time.sleep(5)  # wait for 5 seconds before retrying
 
         finally:
             driver.quit()

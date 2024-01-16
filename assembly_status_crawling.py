@@ -1,3 +1,5 @@
+# assembly_status_crawling.py
+
 from tabulate import tabulate
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -100,9 +102,11 @@ for li in soup.select('ul#gvlist li'):
 
 # 데이터를 DataFrame으로 변환합니다.
 df_corrected = pd.DataFrame(table_data_corrected)
+# Notion, Slack 클라이언트 초기화
+NOTION_DATABASE_ID = "a008ba7d186340a08288adda750a03ad"
+NOTION_API_KEY = "secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV"
 
-
-result = print(tabulate(df_corrected, headers="keys", tablefmt="simple_grid"))
+notion = Client(auth=NOTION_API_KEY)
 
 
 def create_notion_page(database_id, title):
@@ -143,37 +147,78 @@ def append_to_notion(page_id, content):
         print("Error appending block to Notion page:", str(e))
 
 
-SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 2023-국정감사-모니터링
-# SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 대외협력실_new
-
-# WebClient 인스턴스화: API 메서드를 호출할 클라이언트 생성
-# client = WebClient(token=os.environ.get("SLACK_BOT_TOKEN"))
-
-# Slack API token
-# User OAuth Token
-token = 'xoxp-194626280262-697909535825-6033906233927-b41117a1bea58c97265e28c720369ba2'
-# 채널 ID
-channel_id = "C060BR0E4KF"  # 모니터링
-
-# slack
-client = WebClient(token=token)
+result = print(tabulate(df_corrected, headers="keys", tablefmt="simple_grid"))
 
 
-def send_message(text):
-    """
-    슬랙에 메시지를 보내는 함수
-    """
-    try:
-        # 메시지 보내기
-        response = client.chat_postMessage(
-            channel=channel_id,
-            text=text,
-        )
-        # 메시지의 'ts' 값 반환
-        return response['ts']
-    except SlackApiError as e:
-        print(f"Error sending message: {e.response['error']}")
-        return None
+# def create_notion_page(database_id, title):
+#     try:
+#         new_page = notion.pages.create(
+#             parent={"database_id": database_id},
+#             properties={
+#                 "title": [{"type": "text", "text": {"content": title}}]}
+#         )
+#         return new_page['id']
+#     except Exception as e:
+#         print("Error creating a new Notion page:", str(e))
+#         return None
 
 
-# send_message(result)
+# def append_to_notion(page_id, content):
+#     try:
+#         notion.blocks.children.append(
+#             block_id=page_id,
+#             children=[
+#                 {
+#                     "object": "block",
+#                     "type": "paragraph",
+#                     "paragraph": {
+#                         "rich_text": [
+#                             {
+#                                 "type": "text",
+#                                 "text": {
+#                                     "content": content
+#                                 }
+#                             }
+#                         ]
+#                     }
+#                 }
+#             ]
+#         )
+#     except Exception as e:
+#         print("Error appending block to Notion page:", str(e))
+
+
+# SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 2023-국정감사-모니터링
+# # SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 대외협력실_new
+
+# # WebClient 인스턴스화: API 메서드를 호출할 클라이언트 생성
+# # client = WebClient(token=os.environ.get("SLACK_BOT_TOKEN"))
+
+# # Slack API token
+# # User OAuth Token
+# token = 'xoxp-194626280262-697909535825-6033906233927-b41117a1bea58c97265e28c720369ba2'
+# # 채널 ID
+# channel_id = "C060BR0E4KF"  # 모니터링
+
+# # slack
+# client = WebClient(token=token)
+
+
+# def send_message(text):
+#     """
+#     슬랙에 메시지를 보내는 함수
+#     """
+#     try:
+#         # 메시지 보내기
+#         response = client.chat_postMessage(
+#             channel=channel_id,
+#             text=text,
+#         )
+#         # 메시지의 'ts' 값 반환
+#         return response['ts']
+#     except SlackApiError as e:
+#         print(f"Error sending message: {e.response['error']}")
+#         return None
+
+
+# # send_message(result)

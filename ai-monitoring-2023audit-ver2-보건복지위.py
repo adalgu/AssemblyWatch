@@ -20,8 +20,8 @@ import sys
 NOTION_API_KEY = "secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV"
 
 # 초기 세팅
-NOTION_PAGE_ID = "75277c1182c14f3495fbf973234c92c3"  # 보건복지위
-URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=33&xcgcd=DCM00003321410A401&"
+NOTION_PAGE_ID = "694114b616834da8b13a6037745ec255"  # 복지위
+URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=33&xcgcd=DCM00003321410A701&"
 
 
 # SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # onsandbox
@@ -297,6 +297,7 @@ def main():
         except Exception as e:
             print(f"An error occurred: {str(e)}")
             print("Retrying in 5 seconds...")
+            driver = initialize_chrome_driver()  # reinitialize the driver
             time.sleep(5)  # wait for 60 seconds before retrying
 
         finally:

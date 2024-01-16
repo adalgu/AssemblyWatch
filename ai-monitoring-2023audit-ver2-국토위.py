@@ -18,9 +18,8 @@ from notion_client import Client
 NOTION_API_KEY = "secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV"
 
 # 초기 세팅
-NOTION_PAGE_ID = "000cf376ac214821a4701a2b5f050f65"  # 국토위
-URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=54&xcgcd=DCM00005421410A401&"
-
+NOTION_PAGE_ID = "85b3f866ec4d42dbb98cfb2778752d3e"  # 국토위
+URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=54&xcgcd=DCM00005421410A601&"
 
 # 알림을 원하는 키워드 입력 (예: 카카오, 카카오모빌리티, 택시, 모빌리티)
 error_keywords = ['카카오', '카카오모빌리티', '택시', '모빌리티',
@@ -45,11 +44,25 @@ notion = Client(auth=NOTION_API_KEY)
 
 # 전역 변수 추가
 ts = None
+last_crawled_time = None  # <--- 추가된 부분
 
 
 def save_text_to_file(text, filename):
     with open(filename, 'a', encoding='utf-8') as file:
         file.write(text + "\n")
+
+
+def create_notion_page(database_id, title):
+    try:
+        new_page = notion.pages.create(
+            parent={"database_id": database_id},
+            properties={
+                "title": [{"type": "text", "text": {"content": title}}]}
+        )
+        return new_page['id']
+    except Exception as e:
+        print("Error creating a new Notion page:", str(e))
+        return None
 
 
 def append_block_to_page(page_id, content, block_type="paragraph"):
@@ -262,6 +275,7 @@ def main():
                             curr_texts.append(span.text)
 
                 if curr_texts != prev_texts:
+                    last_crawled_time = time.time()  # <--- 새로운 텍스트가 크롤링될 때마다 시간 업데이트
                     new_texts = [
                         text for text in curr_texts if text not in prev_texts]
                     # print("\n".join(new_texts))
@@ -279,9 +293,20 @@ def main():
                         send_slack_msg(SLACK_ALERT_WEBHOOK,
                                        alert_message, title, ts)
 
+                # 만약 마지막으로 크롤링된 시간과 현재 시간의 차이가 0.5분 이상이면 메인 루프를 종료
+                if last_crawled_time and time.time() - last_crawled_time > 30:
+                    dummy_text = ""
+                    save_text_to_file("\n".join(new_texts), full_path)
+                    content = str(new_texts)
+                    append_block_to_page(NOTION_PAGE_ID, content)
+                    send_reply_to_thread(content, ts)
+                    print("No new text was crawled for over a minute. Restarting...")
+                    break  # 내부 루프 종료
+
         except Exception as e:
             print(f"An error occurred: {str(e)}")
-            print("Retrying in 5 seconds...")
+            print("Retrying in 10 seconds...")
+            driver = initialize_chrome_driver()  # reinitialize the driver
             time.sleep(5)  # wait for 60 seconds before retrying
 
         finally:

@@ -281,6 +281,7 @@ def main():
         except Exception as e:
             print(f"An error occurred: {str(e)}")
             print("Retrying in 5 seconds...")
+            driver = initialize_chrome_driver()  # reinitialize the driver
             time.sleep(5)  # wait for 60 seconds before retrying
 
         finally:

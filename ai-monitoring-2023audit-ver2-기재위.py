@@ -18,8 +18,8 @@ from notion_client import Client
 NOTION_API_KEY = "secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV"
 
 # 초기 세팅
-NOTION_PAGE_ID = "4fe421ee264b4d1b8b9f08a1a2bfc803"  # 정무위
-URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=26&xcgcd=DCM00002621410A801&"
+NOTION_PAGE_ID = "f92a6134c12740008554eac9771d01f5"  # 기재위
+URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=38&xcgcd=DCM00003821410A401&"
 
 # 알림을 원하는 키워드 입력 (예: 카카오, 카카오모빌리티, 택시, 모빌리티)
 error_keywords = ['카카오', '카카오모빌리티', '택시', '모빌리티',
@@ -293,15 +293,16 @@ def main():
                         send_slack_msg(SLACK_ALERT_WEBHOOK,
                                        alert_message, title, ts)
 
-                # 만약 마지막으로 크롤링된 시간과 현재 시간의 차이가 0.5분 이상이면 메인 루프를 종료
-                if last_crawled_time and time.time() - last_crawled_time > 30:
-                    dummy_text = ""
-                    save_text_to_file("\n".join(new_texts), full_path)
-                    content = str(new_texts)
-                    append_block_to_page(NOTION_PAGE_ID, content)
-                    send_reply_to_thread(content, ts)
-                    print("No new text was crawled for over a minute. Restarting...")
-                    break  # 내부 루프 종료
+                    # 만약 마지막으로 크롤링된 시간과 현재 시간의 차이가 1분 이상이면 메인 루프를 종료
+                    if last_crawled_time and time.time() - last_crawled_time > 60:
+                        dummy_text = ""
+                        save_text_to_file("\n".join(new_texts), full_path)
+                        content = str(new_texts)
+                        append_block_to_page(NOTION_PAGE_ID, content)
+                        send_reply_to_thread(content, ts)
+                        print(
+                            "No new text was crawled for over a minute. Restarting...")
+                        break  # 내부 루프 종료
 
         except Exception as e:
             print(f"An error occurred: {str(e)}")

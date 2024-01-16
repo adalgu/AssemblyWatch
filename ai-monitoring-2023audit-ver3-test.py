@@ -1,3 +1,4 @@
+import argparse
 from slack_sdk.errors import SlackApiError
 from slack_sdk import WebClient
 import os
@@ -10,59 +11,50 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.common.keys import Keys
 from notion_client import Client
 
-# 환경 설정
-NOTION_API_KEY = "secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV"
+# 1. argparse를 사용하여 필요한 인자들을 정의하고 기본값을 설정합니다.
+parser = argparse.ArgumentParser(description='Script arguments')
+parser.add_argument('--notion_api_key',
+                    default="secret_qQXJvW0U5AKlbxAtQFzq7yac9mx8WahKxYkTFTzOEtV", help='Notion API key')
+parser.add_argument('--notion_page_id',
+                    default="8430012bce944e1fb984115429054274", help='Notion page ID')
+parser.add_argument(
+    '--url', default="https://assembly.webcast.go.kr/main/player.asp?xcode=54&xcgcd=DCM000054214110201&", help='URL to monitor')
+parser.add_argument('--slack_alert_webhook',
+                    default="https://hooks.slack.com/services/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", help='Slack alert webhook URL')
+parser.add_argument(
+    '--token', default='xoxp-194626280262-697909535825-6033906233927-b41117a1bea58c97265e28c720369ba2', help='Slack token')
+parser.add_argument('--channel_id', default="C060BR0E4KF",
+                    help='Slack channel ID')
 
-# 초기 세팅
-NOTION_PAGE_ID = "4fe421ee264b4d1b8b9f08a1a2bfc803"  # 정무위
-URL = "https://assembly.webcast.go.kr/main/player.asp?xcode=26&xcgcd=DCM00002621410A801&"
+args = parser.parse_args()
+
+# 2. 코드 내에서 argparse로 받은 인자 값을 사용합니다.
+NOTION_API_KEY = args.notion_api_key
+NOTION_PAGE_ID = args.notion_page_id
+URL = args.url
+SLACK_ALERT_WEBHOOK = args.slack_alert_webhook
+token = args.token
+channel_id = args.channel_id
 
 # 알림을 원하는 키워드 입력 (예: 카카오, 카카오모빌리티, 택시, 모빌리티)
 error_keywords = ['카카오', '카카오모빌리티', '택시', '모빌리티',
                   '류긍선', '김범수']  # 이 리스트에 검사하고자 하는 단어들을 추가
-# SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # onsandbox
-# SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 2023-국정감사-모니터링
-SLACK_ALERT_WEBHOOK = "https://hooks.slack.com/services/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"  # 대외협력실_new
-
-# WebClient 인스턴스화: API 메서드를 호출할 클라이언트 생성
-# client = WebClient(token=os.environ.get("SLACK_BOT_TOKEN"))
-
-# Slack API token
-# User OAuth Token
-token = 'xoxp-194626280262-697909535825-6033906233927-b41117a1bea58c97265e28c720369ba2'
-# 채널 ID
-channel_id = "C060BR0E4KF"  # 모니터링
-# channel_id = "C061BEMDD0V" #실시간모니터링
-
 
 # Notion 클라이언트 초기화
 notion = Client(auth=NOTION_API_KEY)
 
+# slack
+client = WebClient(token=token)
+
 # 전역 변수 추가
 ts = None
-last_crawled_time = None  # <--- 추가된 부분
 
 
 def save_text_to_file(text, filename):
     with open(filename, 'a', encoding='utf-8') as file:
         file.write(text + "\n")
-
-
-def create_notion_page(database_id, title):
-    try:
-        new_page = notion.pages.create(
-            parent={"database_id": database_id},
-            properties={
-                "title": [{"type": "text", "text": {"content": title}}]}
-        )
-        return new_page['id']
-    except Exception as e:
-        print("Error creating a new Notion page:", str(e))
-        return None
 
 
 def append_block_to_page(page_id, content, block_type="paragraph"):
@@ -90,9 +82,6 @@ def append_block_to_page(page_id, content, block_type="paragraph"):
     except Exception as e:
         print("Error:", str(e))
         return None
-
-
-client = WebClient(token=token)
 
 
 def send_message(text):
@@ -275,7 +264,6 @@ def main():
                             curr_texts.append(span.text)
 
                 if curr_texts != prev_texts:
-                    last_crawled_time = time.time()  # <--- 새로운 텍스트가 크롤링될 때마다 시간 업데이트
                     new_texts = [
                         text for text in curr_texts if text not in prev_texts]
                     # print("\n".join(new_texts))
@@ -293,20 +281,9 @@ def main():
                         send_slack_msg(SLACK_ALERT_WEBHOOK,
                                        alert_message, title, ts)
 
-                # 만약 마지막으로 크롤링된 시간과 현재 시간의 차이가 0.5분 이상이면 메인 루프를 종료
-                if last_crawled_time and time.time() - last_crawled_time > 30:
-                    dummy_text = ""
-                    save_text_to_file("\n".join(new_texts), full_path)
-                    content = str(new_texts)
-                    append_block_to_page(NOTION_PAGE_ID, content)
-                    send_reply_to_thread(content, ts)
-                    print("No new text was crawled for over a minute. Restarting...")
-                    break  # 내부 루프 종료
-
         except Exception as e:
             print(f"An error occurred: {str(e)}")
-            print("Retrying in 10 seconds...")
-            driver = initialize_chrome_driver()  # reinitialize the driver
+            print("Retrying in 5 seconds...")
             time.sleep(5)  # wait for 60 seconds before retrying
 
         finally:

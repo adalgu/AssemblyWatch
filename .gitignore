@@ -1,0 +1,14 @@
+# 환경 설정 파일
+.env
+
+# 운영체제 관련
+.DS_Store
+
+# 특정 폴더
+reports/
+transcripts/
+
+# 특정 파일
+assembly_watch.db
+assembly_watch_live.py
+assembly_watch_record.py

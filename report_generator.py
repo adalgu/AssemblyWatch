@@ -7,12 +7,21 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 
-# .env 파일 로드
-load_dotenv()
+# 먼저 환경 변수에서 OPENAI_API_KEY 확인
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# OpenAI API 키 설정
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
-
+if OPENAI_API_KEY:
+    print(f"환경 변수에서 OPENAI_API_KEY를 찾았습니다. (키 시작: {OPENAI_API_KEY[:5]}...)")
+else:
+    # 환경 변수에 없으면 .env 파일 로드 시도
+    load_dotenv()
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    
+    if OPENAI_API_KEY:
+        print(f".env 파일에서 OPENAI_API_KEY를 찾았습니다. (키 시작: {OPENAI_API_KEY[:5]}...)")
+    else:
+        print("오류: OPENAI_API_KEY를 찾을 수 없습니다. 환경 변수 또는 .env 파일에 API 키를 설정해주세요.")
+        exit(1)
 
 def get_session_transcripts_from_db(session_id):
     conn = sqlite3.connect('assembly_watch.db')
@@ -60,7 +69,7 @@ def generate_summary(vector_store):
 
 def assess_risk(vector_store):
     risk_template = """
-    다음 트랜스크립트를 바탕으로 잠재적인 리스크나 논란의 여지가 있는 이슈를 평가해주세요:
+    다음 트랜스크립트를 바탕으로 논의의 대상이 되는 회사의 입장에서 잠재적인 리스크나 논란의 여지가 있는 이슈를 평가해주세요:
     
     {context}
     
@@ -78,7 +87,7 @@ def assess_risk(vector_store):
     )
 
     risk_assessment = qa_chain.invoke(
-        "회의 내용에서 잠재적인 리스크를 식별해주세요. 최대한 상세하게 나열해주세요.")
+        "회의 내용에서 논의의 대상이 되는 회사의 입장에서 잠재적인 리스크를 식별해주세요. 최대한 상세하게 나열해주세요.")
     return risk_assessment["result"]
 
 
@@ -131,38 +140,47 @@ def generate_report(session_id=None, filename=None):
     return report, title
 
 
-def get_sessions_from_db():
+# def get_sessions_from_db():
+#     cursor.execute('SELECT id, title FROM sessions')
+#     return cursor.fetchall()
+
+def get_sessions_from_db(conn):
+    cursor = conn.cursor()
     cursor.execute('SELECT id, title FROM sessions')
     return cursor.fetchall()
 
-
 if __name__ == "__main__":
+    if not OPENAI_API_KEY:
+        print("오류: OPENAI_API_KEY가 설정되지 않았습니다. 프로그램을 종료합니다.")
+        exit(1)
+
     if os.path.exists('assembly_watch.db'):
         conn = sqlite3.connect('assembly_watch.db')
-        cursor = conn.cursor()
-
-        sessions = get_sessions_from_db()
+        
+        sessions = get_sessions_from_db(conn)
         if sessions:
             print("사용 가능한 세션 목록:")
             for session in sessions:
                 print(f"ID: {session[0]}, 제목: {session[1]}")
 
             while True:
-                session_id = input("리포트를 생성할 세션 ID를 입력하세요 (또는 'q'를 입력하여 종료): ")
-                if session_id.lower() == 'q':
+                session_id_input = input("리포트를 생성할 세션 ID를 입력하세요 (또는 'q'를 입력하여 종료): ")
+                if session_id_input.lower() == 'q':
                     print("프로그램을 종료합니다.")
+                    conn.close()
                     exit()
                 try:
-                    session_id = int(session_id)
+                    session_id = int(session_id_input)
                     if session_id in [s[0] for s in sessions]:
                         report, title = generate_report(session_id=session_id)
                         break
                     else:
                         print("유효하지 않은 세션 ID입니다. 다시 시도해주세요.")
                 except ValueError:
-                    print("숫자를 입력해주세요.")
+                    print("유효한 숫자를 입력해주세요.")
         else:
             print("사용 가능한 세션이 없습니다.")
+            conn.close()
             exit()
 
         conn.close()
@@ -190,16 +208,14 @@ if __name__ == "__main__":
                     else:
                         print("유효하지 않은 선택입니다. 다시 시도해주세요.")
                 except ValueError:
-                    print("숫자를 입력해주세요.")
+                    print("유효한 숫자를 입력해주세요.")
 
     print(report)
 
-    # reports 폴더 생성 (없는 경우)
     reports_folder = os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'reports')
     os.makedirs(reports_folder, exist_ok=True)
 
-    # 리포트를 파일로 저장
     report_filename = f"report_{title}.txt"
     report_path = os.path.join(reports_folder, report_filename)
     with open(report_path, "w", encoding="utf-8") as f:

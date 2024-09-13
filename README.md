@@ -1,5 +1,7 @@
 # Assembly Watch
 
+![napkin-selection](https://github.com/user-attachments/assets/cee34990-b7a6-4b44-81c4-0ecac7b608ec)
+
 Assembly Watch는 국회 영상을 실시간으로 모니터링하고, 트랜스크립트를 생성한 후 요약 리포트를 제공하는 Python 프로젝트입니다.
 
 ## 주요 기능

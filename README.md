@@ -21,7 +21,7 @@ Assembly Watch는 국회 영상을 실시간으로 모니터링하고, 트랜스
 1. 이 저장소를 클론합니다:
 
    ```
-   git clone https://github.com/your-username/assembly-watch.git
+   git clone https://github.com/adalgu/assembly-watch.git
    cd assembly-watch
    ```
 
